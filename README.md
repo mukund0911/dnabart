@@ -1,1 +1,1 @@
-# DNABART: BART for Sequence Error Correction
+# DNABART: BART for Genome Sequence Error Correction
