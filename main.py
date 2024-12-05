@@ -13,16 +13,13 @@ def main():
     # Load Dataset
     train_data, test_data = load_data()
 
-    # Tokenize sequences using BPE
-    tokenizer = BartTokenizerFast.from_pretrained('bpe_small_output')
-
     print("Tokenizing train data...")
-    train_input_encodings = batch_tokenize(tokenizer, list(train_data['input_text']))
-    train_target_encodings = batch_tokenize(tokenizer, list(train_data['target_text']))
+    train_input_encodings = batch_tokenize(list(train_data['input_text']))
+    train_target_encodings = batch_tokenize(list(train_data['target_text']))
 
     print("Tokenizing test data...")
-    test_input_encodings = batch_tokenize(tokenizer, list(test_data['input_text']))
-    test_target_encodings = batch_tokenize(tokenizer, list(test_data['target_text']))
+    test_input_encodings = batch_tokenize(list(test_data['input_text']))
+    test_target_encodings = batch_tokenize(list(test_data['target_text']))
 
     with wandb.init(project="dnabart", config=HYPERPARAMETERS):
         config = wandb.config
@@ -37,6 +34,7 @@ def main():
 
     # Save the trained model
     model.save_pretrained("trained_model")
+
 
 if __name__ == "__main__":
     main()
