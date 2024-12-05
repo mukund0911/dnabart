@@ -2,7 +2,7 @@
 #---------
 user_n=$(whoami)
 wgsimLoc=$"wgsim\wgsim"
-RefGenome="data/S288C_reference_sequence_R64-5-1_20240529.fsa"
+RefGenome="genome_data/S288C_reference_sequence_R64-5-1_20240529.fsa"
 OutputLoc="reference_reads"
 OutputFname="chr21reads"
 
