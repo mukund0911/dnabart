@@ -31,9 +31,7 @@ def main():
 
         # Train the model
         train_model(model, train_loader, test_loader, optimizer, config)
-
-    # Save the trained model
-    model.save_pretrained("trained_model")
+        
 
 
 if __name__ == "__main__":

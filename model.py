@@ -2,12 +2,10 @@ import wandb
 import dill
 import torch
 from tqdm import tqdm
+from torch.cuda.amp import autocast, GradScaler
 from transformers import BartForConditionalGeneration, BartTokenizerFast
 
-import os
-os.environ["TOKENIZERS_PARALLELISM"] = "false"
-
-from config import DEVICE, TOKENIZER
+from config import DEVICE
 
 def make_model(config, train_input_encodings, train_target_encodings, 
                test_input_encodings, test_target_encodings):
@@ -40,7 +38,7 @@ def make_model(config, train_input_encodings, train_target_encodings,
 
 def train_model(model, train_loader, test_loader, optimizer, config):
     """
-    Train the BART model.
+    Train the BART model with optimizations for speed.
 
     Args:
         model (BartForConditionalGeneration): The BART model
@@ -50,72 +48,95 @@ def train_model(model, train_loader, test_loader, optimizer, config):
         config (dict): Configuration parameters
     """
     wandb.watch(model, log="all", log_freq=10)
+    scaler = GradScaler()  # for mixed precision training
 
     for epoch in range(config.epochs):
         model.train()
         total_loss = 0
         correct, total_samples = 0, 0
+        
         for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config.epochs}"):
-            optimizer.zero_grad()
-            outputs = model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], labels=batch['labels'])
-            loss = outputs.loss
-            total_loss += loss.item()
-            loss.backward()
-            optimizer.step()
+            batch = {k: v.to(model.device) for k, v in batch.items()}
             
-            # Train Accuracy
-            # generated_ids = model.generate(batch['input_ids'], max_length=20)
-            
-            # predictions = [decode_sequence(g) for g in generated_ids]
-            # labels = [decode_sequence(l) for l in batch['labels']]
-            
-            # correct += sum(p == l for p, l in zip(predictions, labels))
+            with autocast():  # enables mixed precision
+                outputs = model(input_ids=batch['input_ids'], 
+                                attention_mask=batch['attention_mask'], 
+                                labels=batch['labels'])
+                loss = outputs.loss
 
-            total_samples += len(batch['labels'])
-            step_metrics = {"train/step_loss": loss.item() / total_samples} #"train/step_accuracy": correct / total_samples,
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
+
+            total_loss += loss.item()
+            
+            # Compute accuracy using logits
+            pred_tokens = outputs.logits.argmax(dim=-1)
+            correct += (pred_tokens == batch['labels']).sum().item()
+            total_samples += batch['labels'].numel()
+
+            step_metrics = {
+                "train/step_loss": loss.item(),
+                "train/step_accuracy": correct / total_samples
+            }
             wandb.log(step_metrics)
 
-        train_loss = total_loss / len(train_loader)        
-        metrics = {"train/epoch_loss": train_loss}
-        wandb.log({**step_metrics, **metrics})
-        torch.save(model, f"checkpoints/ckpt_ep{epoch}_b{config.batch_size}_lr{config.lr}.pt", pickle_module=dill)
+        train_loss = total_loss / len(train_loader)
+        train_accuracy = correct / total_samples
+        
+        # Validate Model
+        val_loss, val_accuracy = validate_model(model, test_loader)
+        
+        epoch_metrics = {
+            "train/epoch_loss": train_loss,
+            "train/epoch_accuracy": train_accuracy,
+            "valid/loss": val_loss,
+            "valid/accuracy": val_accuracy,
+            "epoch": epoch
+        }
+        wandb.log(epoch_metrics)
+        
+        print(f"Epoch {epoch+1}/{config.epochs}")
+        print(f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
+        print(f"Valid Loss: {val_loss:.4f}, Valid Accuracy: {val_accuracy:.4f}")
+        
+        # Save model checkpoint
+        torch.save(model.state_dict(), f"checkpoints/ckpt_ep{epoch+1}_b{config.batch_size}_lr{config.lr}.pt")
     
-    # Validate Model
-    val_loss, val_accuracy = validate_model(model, test_loader)  
-    print(f"Valid Loss: {val_loss:3f}, Valid Accuracy: {val_accuracy:.2f}") 
+    model.save_pretrained("trained_model")
     
 
-def validate_model(model, valid_dl):
+def validate_model(model, test_loader):
     """
     Compute performance of the model on the validation dataset.
 
     Args:
         model (BartForConditionalGeneration): The BART model
-        valid_dl (DataLoader): DataLoader for validation data
+        test_loader (DataLoader): DataLoader for validation data
 
     Returns:
         tuple: (average_loss, accuracy)
     """
-    total_eval_loss = 0
-    total_correct = 0
-    total_samples = 0
     model.eval()
-    with torch.inference_mode():
-        for batch in tqdm(valid_dl, desc="Evaluating"):
-            outputs = model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], labels=batch['labels'])
-            loss = outputs.loss
-            total_eval_loss += loss.item()
-            
-            generated_ids = model.generate(batch['input_ids'], max_length=20)
-            
-            predictions = [decode_sequence(g) for g in generated_ids]
-            labels = [decode_sequence(l) for l in batch['labels']]
-            
-            correct = sum(p == l for p, l in zip(predictions, labels))
-            total_correct += correct
-            total_samples += len(predictions)
-    return total_eval_loss / len(valid_dl), total_correct / total_samples
+    total_loss = 0
+    correct, total_samples = 0, 0
 
-def decode_sequence(seq):
-    """Decode a tokenized sequence."""
-    return TOKENIZER.decode(seq, skip_special_tokens=True)
+    with torch.no_grad():
+        for batch in tqdm(test_loader, desc=f"Validation"):
+            batch = {k: v.to(model.device) for k, v in batch.items()}
+            outputs = model(input_ids=batch['input_ids'], 
+                            attention_mask=batch['attention_mask'], 
+                            labels=batch['labels'])
+            
+            total_loss += outputs.loss.item()
+            
+            pred_tokens = outputs.logits.argmax(dim=-1)
+            correct += (pred_tokens == batch['labels']).sum().item()
+            total_samples += batch['labels'].numel()
+
+    return total_loss / len(test_loader), correct / total_samples
+
+# def decode_sequence(seq):
+#     """Decode a tokenized sequence."""
+#     return TOKENIZER.decode(seq, skip_special_tokens=True)
