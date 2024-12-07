@@ -1,7 +1,9 @@
 import wandb
 import dill
-import torch
+import math
 from tqdm import tqdm
+
+import torch
 from torch.cuda.amp import autocast, GradScaler
 from transformers import BartForConditionalGeneration, BartTokenizerFast
 
@@ -54,6 +56,8 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
         model.train()
         total_loss = 0
         correct, total_samples = 0, 0
+
+        TP, FP, FN = 0, 0, 0 
         
         for batch in tqdm(train_loader, desc=f"Epoch {epoch+1}/{config.epochs}"):
             batch = {k: v.to(model.device) for k, v in batch.items()}
@@ -73,8 +77,18 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
             
             # Compute accuracy using logits
             pred_tokens = outputs.logits.argmax(dim=-1)
-            correct += (pred_tokens == batch['labels']).sum().item()
-            total_samples += batch['labels'].numel()
+            correct_preds = (pred_tokens == batch['labels']).sum().item()
+            # total_samples += batch['labels'].numel()
+            total_tokens = batch['labels'].numel()
+
+            correct += correct_preds
+            total_samples += total_tokens
+
+            TP += correct_preds
+            # For every incorrect token, that's both a FN and a FP.
+            incorrect = total_tokens - correct_preds
+            FP += incorrect
+            FN += incorrect
 
             step_metrics = {
                 "train/step_loss": loss.item(),
@@ -85,12 +99,28 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
         train_loss = total_loss / len(train_loader)
         train_accuracy = correct / total_samples
         
+        # Compute token-level F1 score
+        if TP == 0:
+            train_f1 = 0.0
+        else:
+            precision = TP / (TP + FP)
+            recall = TP / (TP + FN)
+            if precision + recall == 0:
+                train_f1 = 0.0
+            else:
+                train_f1 = 2 * (precision * recall) / (precision + recall)
+
+        # Compute perplexity for training set
+        train_perplexity = math.exp(train_loss) if train_loss < 20 else float('inf')
+
         # Validate Model
         val_loss, val_accuracy = validate_model(model, val_loader)
         
         epoch_metrics = {
             "train/epoch_loss": train_loss,
             "train/epoch_accuracy": train_accuracy,
+            "train/epoch_f1": train_f1,
+            "train/epoch_ppl": train_perplexity,
             "valid/loss": val_loss,
             "valid/accuracy": val_accuracy,
             "epoch": epoch
@@ -98,7 +128,7 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
         wandb.log(epoch_metrics)
         
         print(f"Epoch {epoch+1}/{config.epochs}")
-        print(f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}")
+        print(f"Train Loss: {train_loss:.4f}, Train Accuracy: {train_accuracy:.4f}, Train F1: {train_f1:.4f}, Train Perplexity: {train_perplexity:.4f}")
         print(f"Valid Loss: {val_loss:.4f}, Valid Accuracy: {val_accuracy:.4f}")
         
         # Save model checkpoint
