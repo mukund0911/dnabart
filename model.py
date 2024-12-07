@@ -8,7 +8,7 @@ from transformers import BartForConditionalGeneration, BartTokenizerFast
 from config import DEVICE
 
 def make_model(config, train_input_encodings, train_target_encodings, 
-               test_input_encodings, test_target_encodings):
+               val_input_encodings, val_target_encodings):
     """
     Create and initialize the model, dataloaders, and optimizer.
 
@@ -16,17 +16,17 @@ def make_model(config, train_input_encodings, train_target_encodings,
         config (dict): Configuration parameters
         train_input_encodings (List): Tokenized train input sequences
         train_target_encodings (List): Tokenized train target sequences
-        test_input_encodings (List): Tokenized test input sequences
-        test_target_encodings (List): Tokenized test target sequences
+        val_input_encodings (List): Tokenized val input sequences
+        val_target_encodings (List): Tokenized val target sequences
 
     Returns:
-        tuple: (model, train_loader, test_loader, optimizer)
+        tuple: (model, train_loader, val_loader, optimizer)
     """
     from data_loader import make_data_loaders
 
-    train_loader, test_loader = make_data_loaders(
+    train_loader, val_loader = make_data_loaders(
         train_input_encodings, train_target_encodings,
-        test_input_encodings, test_target_encodings
+        val_input_encodings, val_target_encodings
     )
 
     model = BartForConditionalGeneration.from_pretrained('facebook/bart-base').to(DEVICE)
@@ -34,16 +34,16 @@ def make_model(config, train_input_encodings, train_target_encodings,
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
     
-    return model, train_loader, test_loader, optimizer
+    return model, train_loader, val_loader, optimizer
 
-def train_model(model, train_loader, test_loader, optimizer, config):
+def train_model(model, train_loader, val_loader, optimizer, config, corruption_type):
     """
     Train the BART model with optimizations for speed.
 
     Args:
         model (BartForConditionalGeneration): The BART model
         train_loader (DataLoader): DataLoader for training data
-        test_loader (DataLoader): DataLoader for validation data
+        val_loader (DataLoader): DataLoader for validation data
         optimizer (torch.optim.Optimizer): The optimizer
         config (dict): Configuration parameters
     """
@@ -86,7 +86,7 @@ def train_model(model, train_loader, test_loader, optimizer, config):
         train_accuracy = correct / total_samples
         
         # Validate Model
-        val_loss, val_accuracy = validate_model(model, test_loader)
+        val_loss, val_accuracy = validate_model(model, val_loader)
         
         epoch_metrics = {
             "train/epoch_loss": train_loss,
@@ -102,18 +102,18 @@ def train_model(model, train_loader, test_loader, optimizer, config):
         print(f"Valid Loss: {val_loss:.4f}, Valid Accuracy: {val_accuracy:.4f}")
         
         # Save model checkpoint
-        torch.save(model.state_dict(), f"checkpoints/ckpt_ep{epoch+1}_b{config.batch_size}_lr{config.lr}.pt")
+        torch.save(model.state_dict(), f"checkpoints/{corruption_type}/ckpt_ep{epoch+1}_b{config.batch_size}_lr{config.lr}.pt")
     
-    model.save_pretrained("trained_model")
+    model.save_pretrained(f"trained_models/{corruption_type}")
     
 
-def validate_model(model, test_loader):
+def validate_model(model, val_loader):
     """
     Compute performance of the model on the validation dataset.
 
     Args:
         model (BartForConditionalGeneration): The BART model
-        test_loader (DataLoader): DataLoader for validation data
+        val_loader (DataLoader): DataLoader for validation data
 
     Returns:
         tuple: (average_loss, accuracy)
@@ -123,7 +123,7 @@ def validate_model(model, test_loader):
     correct, total_samples = 0, 0
 
     with torch.no_grad():
-        for batch in tqdm(test_loader, desc=f"Validation"):
+        for batch in tqdm(val_loader, desc=f"Validation"):
             batch = {k: v.to(model.device) for k, v in batch.items()}
             outputs = model(input_ids=batch['input_ids'], 
                             attention_mask=batch['attention_mask'], 
@@ -135,8 +135,4 @@ def validate_model(model, test_loader):
             correct += (pred_tokens == batch['labels']).sum().item()
             total_samples += batch['labels'].numel()
 
-    return total_loss / len(test_loader), correct / total_samples
-
-# def decode_sequence(seq):
-#     """Decode a tokenized sequence."""
-#     return TOKENIZER.decode(seq, skip_special_tokens=True)
+    return total_loss / len(val_loader), correct / total_samples

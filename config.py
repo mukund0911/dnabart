@@ -21,4 +21,4 @@ HYPERPARAMETERS = {
 BATCH_SIZE = 8
 
 # Tokenize sequences using BPE
-TOKENIZER = BartTokenizerFast.from_pretrained('bpe_small_output')
+TOKENIZER = BartTokenizerFast.from_pretrained('bpe_tokenization')
