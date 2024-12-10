@@ -52,6 +52,9 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
     wandb.watch(model, log="all", log_freq=10)
     scaler = GradScaler()  # for mixed precision training
 
+    # Load checkpoint until epoch 2
+    # model.load_state_dict(torch.load(f'checkpoints/{corruption_type}/ckpt_ep2_b{config.batch_size}_lr{config.lr}.pt'))
+
     for epoch in range(config.epochs):
         model.train()
         total_loss = 0
@@ -78,7 +81,6 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
             # Compute accuracy using logits
             pred_tokens = outputs.logits.argmax(dim=-1)
             correct_preds = (pred_tokens == batch['labels']).sum().item()
-            # total_samples += batch['labels'].numel()
             total_tokens = batch['labels'].numel()
 
             correct += correct_preds
@@ -92,7 +94,7 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
 
             step_metrics = {
                 "train/step_loss": loss.item(),
-                "train/step_accuracy": correct / total_samples
+                "train/step_accuracy": correct_preds / total_tokens
             }
             wandb.log(step_metrics)
 
@@ -132,9 +134,9 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
         print(f"Valid Loss: {val_loss:.4f}, Valid Accuracy: {val_accuracy:.4f}")
         
         # Save model checkpoint
-        torch.save(model.state_dict(), f"checkpoints/{corruption_type}/ckpt_ep{epoch+1}_b{config.batch_size}_lr{config.lr}.pt")
+        # torch.save(model.state_dict(), f"checkpoints/{corruption_type}/ckpt_ep{epoch+1}_b{config.batch_size}_lr{config.lr}.pt")
     
-    model.save_pretrained(f"trained_models/{corruption_type}")
+    # model.save_pretrained(f"trained_models_100k_{enc_type}/{corruption_type}")
     
 
 def validate_model(model, val_loader):

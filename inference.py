@@ -1,3 +1,4 @@
+import sys
 import wandb
 import pandas as pd
 from tqdm import tqdm
@@ -10,7 +11,9 @@ from transformers import BartForConditionalGeneration
 from config import BATCH_SIZE, TOKENIZER, HYPERPARAMETERS
 from data_loader import BatchedGenomeDataset
 
-wandb.init(project="dnabart", config=HYPERPARAMETERS)
+corruption_type = sys.argv[1]
+
+wandb.init(project=f"dnabart_{corruption_type}", config=HYPERPARAMETERS)
 
 ## Load test sequences and tokenize
 
@@ -18,16 +21,16 @@ def batch_tokenize(seq: List, batch_size=1000):
     encodings = []
     for i in tqdm(range(0, len(seq), batch_size)):
         batch = seq[i:i+batch_size]
-        batch_encodings = TOKENIZER(batch, return_tensors='pt', max_length=20, 
+        batch_encodings = TOKENIZER(batch, return_tensors='pt', max_length=150, 
                                     truncation=True, padding="max_length")
         batch_encodings = {k: v for k, v in batch_encodings.items()}
         encodings.append(batch_encodings)
     return encodings
 
-with open('reference_reads/R1_sequences.txt', 'r') as f:
+with open(f'reference_reads_{corruption_type}/R1_sequences.txt', 'r') as f:
     inputs = [line.strip() for line in f]
 
-with open('reference_reads/R1_true_sequences.txt', 'r') as f:
+with open(f'reference_reads_{corruption_type}/R1_true_sequences.txt', 'r') as f:
     targets = [line.strip() for line in f]
 
 test_data = pd.DataFrame({'input_text': inputs, 'target_text': targets})
@@ -54,7 +57,7 @@ def log_image_table(predictions, input, labels):
     wandb.log({"predictions_table":table})
 
 
-model = BartForConditionalGeneration.from_pretrained('trained_model')
+model = BartForConditionalGeneration.from_pretrained(f'trained_models_100k/{corruption_type}')
 
 total_eval_loss = 0
 total_correct = 0
@@ -67,7 +70,7 @@ with torch.inference_mode():
         # exit()
         outputs = model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], labels=batch['labels'])
 
-        generated_ids = model.generate(batch['input_ids'], max_length=20)
+        generated_ids = model.generate(batch['input_ids'])
 
         predictions = [decode_sequence(g) for g in generated_ids]
         input = [decode_sequence(i) for i in batch['input_ids']]

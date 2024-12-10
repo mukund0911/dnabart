@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+from tokenizer import kmer_tokenize
 from config import DEVICE, BATCH_SIZE, TOKENIZER
 
 class BatchedGenomeDataset(Dataset):
@@ -40,10 +41,10 @@ def load_data(corruption_type):
         targets = [line.strip() for line in f]
 
     data = pd.DataFrame({'input_text': inputs, 'target_text': targets})
-    data = data[:1000]
-    return train_test_split(data, test_size=0.1, random_state=42)
+    data = data[:10000]
+    return train_test_split(data, test_size=0.2, random_state=42)
 
-def batch_tokenize(seq: List, batch_size=1000):
+def batch_tokenize(seq: List, enc_type='bpe', batch_size=1000):
     """
     Tokenize input sequences based on trained BPE tokenizer.
 
@@ -51,6 +52,7 @@ def batch_tokenize(seq: List, batch_size=1000):
         tokenizer: BPE tokenizer trained on Saccharomyces reference sequence.
         seq (List): list of genome sequences
         batch_size (int): specified number of sequences for batch-wise tokenization
+        enc_type (str): type of encoding to use (bpe or kmer)
 
     Returns:
         List: Tokenized sequences based on BPE.
@@ -58,9 +60,16 @@ def batch_tokenize(seq: List, batch_size=1000):
     encodings = []
     for i in tqdm(range(0, len(seq), batch_size)):
         batch = seq[i:i+batch_size]
-        batch_encodings = TOKENIZER(batch, return_tensors='pt', max_length=20, 
-                                    truncation=True, padding="max_length")
-        batch_encodings = {k: v.to(DEVICE) for k, v in batch_encodings.items()}
+        if enc_type == 'bpe':
+            batch_encodings = TOKENIZER(batch, return_tensors='pt', max_length=150, 
+                                        truncation=True, padding="max_length")
+            batch_encodings = {k: v.to(DEVICE) for k, v in batch_encodings.items()}
+        else:
+            encoded = [kmer_tokenize(s, max_length=150) for s in batch]
+            input_ids = torch.tensor([e[0] for e in encoded])
+            attention_mask = torch.tensor([e[1] for e in encoded])
+            batch_encodings = {'input_ids': input_ids.to(DEVICE), 'attention_mask': attention_mask.to(DEVICE)}
+
         encodings.append(batch_encodings)
     return encodings
 
