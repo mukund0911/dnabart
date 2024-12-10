@@ -10,6 +10,7 @@ from model import make_model, train_model
 
 def main():
     corruption_type = sys.argv[1]
+    enc_type = sys.argv[2]
 
     print(f"Using device: {DEVICE}; {torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'}")
 
@@ -17,12 +18,12 @@ def main():
     train_data, val_data = load_data(corruption_type)
 
     print("Tokenizing train data...")
-    train_input_encodings = batch_tokenize(list(train_data['input_text']))
-    train_target_encodings = batch_tokenize(list(train_data['target_text']))
+    train_input_encodings = batch_tokenize(list(train_data['input_text']), enc_type)
+    train_target_encodings = batch_tokenize(list(train_data['target_text']), enc_type)
 
     print("Tokenizing validation data...")
-    val_input_encodings = batch_tokenize(list(val_data['input_text']))
-    val_target_encodings = batch_tokenize(list(val_data['target_text']))
+    val_input_encodings = batch_tokenize(list(val_data['input_text']), enc_type)
+    val_target_encodings = batch_tokenize(list(val_data['target_text']), enc_type)
 
     with wandb.init(project=f"dnabart_{corruption_type}", config=HYPERPARAMETERS):
         config = wandb.config
