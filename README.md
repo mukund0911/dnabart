@@ -16,6 +16,74 @@ DNABART is a novel encoder-decoder transformer model adapted from BART architect
 - [Finetuning](#finetune)
 - [Acknowledgements](#acknowledgements)
 
+
+## Installation
+
+### Prerequisites
+- Python 3.6+
+- CUDA-compatible GPU (tested on V100 and H100)
+- Git
+
+### Environment Setup
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/dnabart.git
+cd dnabart
+```
+
+2. Create and activate a virtual environment:
+```bash
+python -m venv dnabart_env
+source dnabart_env/bin/activate  # On Windows: dnabart_env\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### Weights & Biases Setup
+1. Install wandb:
+```bash
+pip install wandb
+```
+
+2. Login to your W&B account:
+```bash
+wandb login
+```
+
+3. Configure W&B project (automatic during training)
+
+### Data Preparation
+1. Generate reference reads using wgsim:
+```bash
+# Make the script executable
+chmod +x GenerateReads.sh
+# Run the script
+./GenerateReads.sh
+```
+
+2. Prepare tokenizer:
+```bash
+# For BPE tokenization
+python tokenizer.py
+```
+
+### Directory Structure
+Ensure the following directory structure exists:
+```
+dnabart/
+├── checkpoints/
+│   └── {corruption_type}/
+├── reference_reads/
+├── trained_models/
+│   └── {corruption_type}/
+└── genome_data/
+    └── S288C_reference_sequence_R64-5-1_20240529.fsa
+```
+
+
 ## Pretraining
 
 ### Setup
@@ -28,6 +96,31 @@ DNABART is a novel encoder-decoder transformer model adapted from BART architect
 - Optimized with AdamW (lr = 1e-4)
 - Training: 3 epochs, batch size 5
 - Hardware: 3x NVIDIA V100 32GB GPUs
+
+
+### Training the Model
+
+1. **Pretraining**
+```bash
+# Format:
+python main.py <corruption_type> <encoding_type>
+
+# Examples:
+# For substitution corruption with BPE encoding
+python main.py substitution bpe
+
+# For insertion-deletion corruption with k-mer encoding
+python main.py indel kmer
+```
+
+Command line arguments:
+- `corruption_type`: Type of sequence corruption ['substitution', 'indel', 'both']
+- `encoding_type`: Type of sequence encoding ['bpe', 'kmer']
+
+2. **Inference**
+```bash
+python inference.py <corruption_type>
+```
 
 ### Results
 
