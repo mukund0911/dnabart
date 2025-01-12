@@ -41,7 +41,7 @@ def load_data(corruption_type):
         targets = [line.strip() for line in f]
 
     data = pd.DataFrame({'input_text': inputs, 'target_text': targets})
-    data = data[:10000]
+    data = data[:100000]
     return train_test_split(data, test_size=0.2, random_state=42)
 
 def batch_tokenize(seq: List, enc_type='bpe', batch_size=1000):
@@ -65,7 +65,7 @@ def batch_tokenize(seq: List, enc_type='bpe', batch_size=1000):
                                         truncation=True, padding="max_length")
             batch_encodings = {k: v.to(DEVICE) for k, v in batch_encodings.items()}
         else:
-            encoded = [kmer_tokenize(s, max_length=150) for s in batch]
+            encoded = [kmer_tokenize(s, max_length=100) for s in batch]
             input_ids = torch.tensor([e[0] for e in encoded])
             attention_mask = torch.tensor([e[1] for e in encoded])
             batch_encodings = {'input_ids': input_ids.to(DEVICE), 'attention_mask': attention_mask.to(DEVICE)}

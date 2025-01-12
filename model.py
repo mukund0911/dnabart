@@ -38,7 +38,8 @@ def make_model(config, train_input_encodings, train_target_encodings,
     
     return model, train_loader, val_loader, optimizer
 
-def train_model(model, train_loader, val_loader, optimizer, config, corruption_type):
+def train_model(model, train_loader, val_loader, optimizer, 
+                config, corruption_type, enc_type):
     """
     Train the BART model with optimizations for speed.
 
@@ -53,9 +54,9 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
     scaler = GradScaler()  # for mixed precision training
 
     # Load checkpoint until epoch 2
-    # model.load_state_dict(torch.load(f'checkpoints/{corruption_type}/ckpt_ep2_b{config.batch_size}_lr{config.lr}.pt'))
+    model.load_state_dict(torch.load(f'checkpoints/{corruption_type}/ckpt_ep2_b{config.batch_size}_lr{config.lr}.pt'))
 
-    for epoch in range(config.epochs):
+    for epoch in range(2, config.epochs):
         model.train()
         total_loss = 0
         correct, total_samples = 0, 0
@@ -136,7 +137,7 @@ def train_model(model, train_loader, val_loader, optimizer, config, corruption_t
         # Save model checkpoint
         # torch.save(model.state_dict(), f"checkpoints/{corruption_type}/ckpt_ep{epoch+1}_b{config.batch_size}_lr{config.lr}.pt")
     
-    # model.save_pretrained(f"trained_models_100k_{enc_type}/{corruption_type}")
+    model.save_pretrained(f"trained_models_100k_{enc_type}/{corruption_type}")
     
 
 def validate_model(model, val_loader):

@@ -57,7 +57,7 @@ def log_image_table(predictions, input, labels):
     wandb.log({"predictions_table":table})
 
 
-model = BartForConditionalGeneration.from_pretrained(f'trained_models_100k/{corruption_type}')
+model = BartForConditionalGeneration.from_pretrained(f'trained_models_100k_kmer/{corruption_type}')
 
 total_eval_loss = 0
 total_correct = 0

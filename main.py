@@ -25,7 +25,7 @@ def main():
     val_input_encodings = batch_tokenize(list(val_data['input_text']), enc_type)
     val_target_encodings = batch_tokenize(list(val_data['target_text']), enc_type)
 
-    with wandb.init(project=f"dnabart_{corruption_type}", config=HYPERPARAMETERS):
+    with wandb.init(project=f"dnabart_{corruption_type}_{enc_type}", config=HYPERPARAMETERS):
         config = wandb.config
 
         # Define the model, data, and optimization problem
@@ -34,7 +34,7 @@ def main():
                                                                  val_input_encodings, val_target_encodings)
 
         # Train the model
-        train_model(model, train_loader, val_loader, optimizer, config, corruption_type)
+        train_model(model, train_loader, val_loader, optimizer, config, corruption_type, enc_type)
         
 
 

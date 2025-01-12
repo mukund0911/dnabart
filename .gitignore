@@ -1,0 +1,7 @@
+venv
+checkpoints
+trained_models*
+bpe_tokenization
+reference_reads_*
+__pycache__
+wandb
