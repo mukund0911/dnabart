@@ -11,11 +11,9 @@ DNABART is a novel encoder-decoder transformer model adapted from BART architect
 - **Resource Efficient**: Competitive performance with only 103M parameters (compared to 2.5B in NT and 117M in DNABERT2)
 
 ## Table of Contents
-- [Model Architectures](#architecture)
 - [Installation](#installation)
-- [Usage](#usage)
-- [Examples](#examples)
-- [Contributing](#contributing)
+- [Pretraining](#pretraining)
+- [Finetuning](#finetune)
 - [Acknowledgements](#acknowledgements)
 
 ## Pretraining
@@ -31,5 +29,8 @@ DNABART is a novel encoder-decoder transformer model adapted from BART architect
 - Training: 3 epochs, batch size 5
 - Hardware: 3x NVIDIA V100 32GB GPUs
 
+### Results
 
+Best performance achieved with substitution-only corruption.
 
+<img src="misc/pretraining_result.png" align="center" width="500"/>
