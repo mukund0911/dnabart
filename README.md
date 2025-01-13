@@ -165,3 +165,5 @@ Best performance achieved with substitution-only corruption.
 - Improvements of up to 24% on some tasks
 - Strong performance on tasks with long-range dependencies
 - Notable exception: lower performance on COVID dataset in virus classification task
+
+<img src="misc/epigenitic_marks.png" align="center" width="500"/>
