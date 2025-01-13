@@ -26,49 +26,34 @@ DNABART is a novel encoder-decoder transformer model adapted from BART architect
 
 ### Environment Setup
 1. Clone the repository:
-```bash
-git clone https://github.com/yourusername/dnabart.git
-cd dnabart
-```
+   ```bash
+   git clone https://github.com/mukund0911/dnabart.git
+   cd dnabart
+   ```
 
 2. Create and activate a virtual environment:
-```bash
-python -m venv dnabart_env
-source dnabart_env/bin/activate  # On Windows: dnabart_env\Scripts\activate
-```
+   ```bash
+   python -m venv dnabart_env
+   source dnabart_env/bin/activate  # On Windows: dnabart_env\Scripts\activate
+   ```
 
 3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ### Weights & Biases Setup
 1. Install wandb:
-```bash
-pip install wandb
-```
+   ```bash
+   pip install wandb
+   ```
 
 2. Login to your W&B account:
-```bash
-wandb login
-```
+   ```bash
+   wandb login
+   ```
 
 3. Configure W&B project (automatic during training)
-
-### Data Preparation
-1. Generate reference reads using wgsim:
-```bash
-# Make the script executable
-chmod +x GenerateReads.sh
-# Run the script
-./GenerateReads.sh
-```
-
-2. Prepare tokenizer:
-```bash
-# For BPE tokenization
-python tokenizer.py
-```
 
 ### Directory Structure
 Ensure the following directory structure exists:
@@ -76,18 +61,18 @@ Ensure the following directory structure exists:
 dnabart/
 ├── checkpoints/
 │   └── {corruption_type}/
+├── data/
+│   └── gue_dataset
+│   └── S288C_reference_sequence_R64-5-1_20240529.fsa
 ├── reference_reads/
-├── trained_models/
 │   └── {corruption_type}/
-└── genome_data/
-    └── S288C_reference_sequence_R64-5-1_20240529.fsa
+└── trained_models/
+    └── {corruption_type}/
 ```
-
 
 ## Pretraining
 
 ### Setup
-
 - Trained on Saccharomyces genome sequences (1M sequences)
 - Multiple corruption strategies evaluated:
   - Substitution only
@@ -97,33 +82,61 @@ dnabart/
 - Training: 3 epochs, batch size 5
 - Hardware: 3x NVIDIA V100 32GB GPUs
 
+### Data Preparation
+1. Download the current release of Saccharomyces Genome Dataset from this [link](http://sgd-archive.yeastgenome.org/sequence/S288C_reference/genome_releases/). 
+2. Install wgsim (follow these [instructions](https://github.com/lh3/wgsim)) and generate reference reads as follows. Original `GenerateReads.sh` script includes all three (substitution, deletion, insertion) corruption techniques. If you want to experiment with a single corruption technique, disable the variable in the wgsim command (line 24).
+   
+   ```bash
+   # Make the script executable
+   chmod +x GenerateReads.sh
+   # Run the script
+   ./GenerateReads.sh
+   ```
 
-### Training the Model
+   The above script generates two files: `chr21reads_R1_L150.fastq`, the corrupted genome reference sequences, and `chr21reads_R1_L150_TRUE.fastq`, the true (uncorrupted) sequence. Convert the fastq formats to text files as:
 
-1. **Pretraining**
-```bash
-# Format:
-python main.py <corruption_type> <encoding_type>
+   ```bash
+   cat chr21reads_R1_L150.fastq > R1_sequences.txt
+   cat chr21reads_R1_L150_TRUE.fastq > R1_true_sequences.txt
+   ```
 
-# Examples:
-# For substitution corruption with BPE encoding
-python main.py substitution bpe
+   Save these text files into `reference_reads\{corruption_type}` folder.
 
-# For insertion-deletion corruption with k-mer encoding
-python main.py indel kmer
-```
+3. Prepare tokenizer:
+   ```bash
+    python tokenizer.py <encoding_type>
+    ```
 
-Command line arguments:
-- `corruption_type`: Type of sequence corruption ['substitution', 'indel', 'both']
-- `encoding_type`: Type of sequence encoding ['bpe', 'kmer']
+    Command line arguments:
+    - `encoding_type`: Type of sequence encoding ['bpe', 'kmer']
 
-2. **Inference**
-```bash
-python inference.py <corruption_type>
-```
+4. Pretraining
+   ```bash
+   python main.py <corruption_type> <encoding_type>
+
+   # Examples:
+   # For substitution corruption with BPE encoding
+   python main.py sub bpe
+
+   # For insertion-deletion corruption with k-mer encoding
+   python main.py indel kmer
+   ```
+
+   Command line arguments:
+   - `corruption_type`: Type of sequence corruption ['sub', 'indel', 'indelsub']
+   - `encoding_type`: Type of sequence encoding ['bpe', 'kmer']
+  
+   The pretraining process saves the checkpoints at each epoch at `checkpoints\{corruption_type}`, and final trained model as `trained_models\{corruption_type}`. Also, track the model performance on Weights&Biases using the link provided in the terminal before the training starts.
+
+5. Inference
+   ```bash
+   python inference.py <corruption_type> <encoding_type>
+   ```
 
 ### Results
 
 Best performance achieved with substitution-only corruption.
 
 <img src="misc/pretraining_result.png" align="center" width="500"/>
+
+## Finetuning
