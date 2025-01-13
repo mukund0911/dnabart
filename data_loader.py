@@ -41,7 +41,6 @@ def load_data(corruption_type):
         targets = [line.strip() for line in f]
 
     data = pd.DataFrame({'input_text': inputs, 'target_text': targets})
-    data = data[:100000]
     return train_test_split(data, test_size=0.2, random_state=42)
 
 def batch_tokenize(seq: List, enc_type='bpe', batch_size=1000):

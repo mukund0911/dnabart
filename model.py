@@ -53,9 +53,6 @@ def train_model(model, train_loader, val_loader, optimizer,
     wandb.watch(model, log="all", log_freq=10)
     scaler = GradScaler()  # for mixed precision training
 
-    # Load checkpoint until epoch 2
-    model.load_state_dict(torch.load(f'checkpoints/{corruption_type}/ckpt_ep2_b{config.batch_size}_lr{config.lr}.pt'))
-
     for epoch in range(2, config.epochs):
         model.train()
         total_loss = 0
@@ -135,7 +132,7 @@ def train_model(model, train_loader, val_loader, optimizer,
         print(f"Valid Loss: {val_loss:.4f}, Valid Accuracy: {val_accuracy:.4f}")
         
         # Save model checkpoint
-        # torch.save(model.state_dict(), f"checkpoints/{corruption_type}/ckpt_ep{epoch+1}_b{config.batch_size}_lr{config.lr}.pt")
+        torch.save(model.state_dict(), f"checkpoints/{corruption_type}/ckpt_ep{epoch+1}_b{config.batch_size}_lr{config.lr}.pt")
     
     model.save_pretrained(f"trained_models_100k_{enc_type}/{corruption_type}")
     
